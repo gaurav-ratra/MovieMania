@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiteWrap Admin</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 15px system-ui, sans-serif; background: #14161a; color: #eee; margin: 0; padding: 24px; }
+  main { max-width: 960px; margin: auto; }
+  h1 { margin: 0 0 4px; }
+  .muted { color: #9aa; font-size: 13px; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
+  input, select, button { font: inherit; background: #2b2f36; color: #eee; border: 1px solid #444; border-radius: 8px; padding: 8px 10px; }
+  button { cursor: pointer; } button.primary { background: #1e88e5; border-color: #1e88e5; }
+  .row { display: grid; grid-template-columns: 1fr 2fr 120px auto auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .row label { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .row input[type=checkbox] { width: 18px; height: 18px; }
+  #status { min-height: 1.4em; }
+  .ok { color: #6c6; } .err { color: #f77; }
+  code { background: #2b2f36; padding: 2px 6px; border-radius: 6px; }
+  @media (max-width: 700px) { .row { grid-template-columns: 1fr 1fr; } .row input:nth-child(2) { grid-column: 1 / -1; order: -1; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>SiteWrap Admin</h1>
+  <div class="muted">In the app: tile <b>Connect admin panel</b> &rarr; enter <code id="origin"></code></div>
+
+  <div class="bar">
+    <input id="pw" type="password" placeholder="Admin password" autocomplete="current-password">
+    <button id="add">+ Add site</button>
+    <button id="save" class="primary">Save changes</button>
+    <span id="status"></span>
+  </div>
+
+  <div id="list"></div>
+</main>
+
+<script>
+const MODES = ['Mobile', 'Desktop', 'Smart TV'];
+const $ = id => document.getElementById(id);
+let sites = [];
+
+$('origin').textContent = location.origin;
+$('pw').value = localStorage.getItem('pw') || '';
+
+function say(msg, ok) { $('status').textContent = msg; $('status').className = ok ? 'ok' : 'err'; }
+
+function render() {
+  const list = $('list');
+  list.replaceChildren();
+  sites.forEach((s, i) => {
+    const row = document.createElement('div'); row.className = 'row';
+    const name = Object.assign(document.createElement('input'), { value: s.name, placeholder: 'Name' });
+    const url = Object.assign(document.createElement('input'), { value: s.url, placeholder: 'https://…', type: 'url' });
+    const mode = document.createElement('select');
+    MODES.forEach((m, k) => mode.add(new Option(m, k, false, k === s.mode)));
+    const cur = Object.assign(document.createElement('input'), { type: 'checkbox', checked: s.cursor });
+    const lab = document.createElement('label'); lab.append(cur, 'Cursor');
+    const tools = document.createElement('div');
+    const btn = (t, fn) => { const b = document.createElement('button'); b.textContent = t; b.onclick = fn; return b; };
+    tools.append(
+      btn('↑', () => move(i, -1)), btn('↓', () => move(i, 1)),
+      btn('✕', () => { sites.splice(i, 1); render(); })
+    );
+    name.oninput = () => s.name = name.value;
+    url.oninput = () => s.url = url.value;
+    mode.onchange = () => s.mode = +mode.value;
+    cur.onchange = () => s.cursor = cur.checked;
+    row.append(name, url, mode, lab, tools);
+    list.append(row);
+  });
+}
+
+function move(i, d) {
+  const j = i + d;
+  if (j < 0 || j >= sites.length) return;
+  [sites[i], sites[j]] = [sites[j], sites[i]];
+  render();
+}
+
+$('add').onclick = () => { sites.push({ name: '', url: '', mode: 1, cursor: true }); render(); };
+
+$('save').onclick = async () => {
+  localStorage.setItem('pw', $('pw').value);
+  const r = await fetch('/api/sites', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': $('pw').value },
+    body: JSON.stringify(sites.filter(s => s.url.trim())),
+  });
+  if (r.ok) { say('Saved. Apps pick it up next time they open.', true); load(); }
+  else say((await r.json()).error || 'Save failed', false);
+};
+
+async function load() { sites = await (await fetch('/api/sites')).json(); render(); }
+load();
+</script>
+</body>
+</html>

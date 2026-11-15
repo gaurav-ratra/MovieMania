@@ -28,17 +28,26 @@ private val DEFAULTS = listOf(
     Site("Google", "https://www.google.com", 1, true),
 )
 
-fun loadSites(c: Context): MutableList<Site> {
-    val raw = c.getSharedPreferences("sites", 0).getString("list", null) ?: return DEFAULTS.toMutableList()
+/** Same JSON shape the admin panel serves: [{"name","url","mode","cursor"}] */
+fun parseSites(raw: String): MutableList<Site> {
     val a = JSONArray(raw)
     return MutableList(a.length()) {
         val o = a.getJSONObject(it)
-        Site(o.getString("n"), o.getString("u"), o.getInt("m"), o.getBoolean("c"))
+        Site(o.getString("name"), o.getString("url"), o.optInt("mode", 0), o.optBoolean("cursor", false))
     }
 }
 
+fun loadSites(c: Context): MutableList<Site> =
+    c.getSharedPreferences("sites", 0).getString("list", null)?.let { parseSites(it) } ?: DEFAULTS.toMutableList()
+
 fun saveSites(c: Context, list: List<Site>) {
     val a = JSONArray()
-    list.forEach { a.put(JSONObject().put("n", it.name).put("u", it.url).put("m", it.mode).put("c", it.cursor)) }
+    list.forEach { a.put(JSONObject().put("name", it.name).put("url", it.url).put("mode", it.mode).put("cursor", it.cursor)) }
     c.getSharedPreferences("sites", 0).edit().putString("list", a.toString()).apply()
 }
+
+/** Optional: put your admin panel address here before building (e.g. "http://192.168.1.10:8080") to skip typing it on a TV. */
+const val DEFAULT_SYNC = ""
+
+fun syncBase(c: Context): String = c.getSharedPreferences("sites", 0).getString("sync", DEFAULT_SYNC) ?: ""
+fun setSyncBase(c: Context, v: String) = c.getSharedPreferences("sites", 0).edit().putString("sync", v).apply()

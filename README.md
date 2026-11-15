@@ -19,3 +19,14 @@ One APK for Android phones and Android TV / TV boxes. Pick a site from the grid 
 ## Limits
 - Google sign-in refuses embedded WebViews. DRM streaming (Netflix, Prime, Disney+) mostly will not play in a WebView.
 - Only http(s) is followed; app deep links are blocked on purpose.
+
+## Admin panel (add links from a browser)
+`admin/` is a tiny web panel (Node 18+, no dependencies). Run it on any always-on machine (PC, Mac, Raspberry Pi, home server):
+
+    cd admin && node server.js        # prints the admin password; or: ADMIN_PASSWORD=secret node server.js
+
+1. Open `http://<that-machine-ip>:8080` in any browser, enter the password, add/edit/reorder sites, press **Save**.
+2. In the app, open the **Connect admin panel** tile and enter the same address once. The app re-syncs every time it opens, and the panel replaces the local list.
+3. To skip typing the address on a TV, set `DEFAULT_SYNC` in `Sites.kt` before building.
+
+Phone/TV must be able to reach the machine (same Wi-Fi, or host it publicly). Anyone who knows the address can read the list; only the password holder can change it. Use HTTPS (e.g. via a tunnel/reverse proxy) if you expose it to the internet.
